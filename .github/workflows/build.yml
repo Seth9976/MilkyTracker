@@ -16,6 +16,14 @@ jobs:
         with:  
           submodules: recursive  
   
+      - name: Install CMake 3.31.x  
+        uses: jwlawson/actions-setup-cmake@v2  
+        with:  
+          cmake-version: '3.31.x'  
+  
+      - name: Verify CMake version  
+        run: cmake --version  
+  
       - name: Configure CMake (Visual Studio generator)  
         run: cmake -S . -B build -A x64  
   
