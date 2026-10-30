@@ -16,10 +16,10 @@ jobs:
         with:  
           submodules: recursive  
   
-      - name: Install latest CMake  
+      - name: Install CMake 3.31.x  
         uses: jwlawson/actions-setup-cmake@v2  
         with:  
-          cmake-version: 'latest'  
+          cmake-version: '3.31.x'  
   
       - name: Verify CMake version  
         run: cmake --version  
@@ -31,38 +31,27 @@ jobs:
           $vsVersion = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -property installationVersion  
           Write-Output "Detected VS path: $vsPath"  
           Write-Output "Detected VS version: $vsVersion"  
-          $major = [int]($vsVersion.Split('.')[0])  
-          switch ($major) {  
-            17 { $generator = "Visual Studio 17 2022" }  
-            18 { $generator = "Visual Studio 18 2026" }  
-            default { throw "Unsupported Visual Studio major version: $major" }  
-          }  
-          Write-Output "Using CMake generator: $generator"  
-          Write-Output "VS_PATH=$vsPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append  
-          Write-Output "CMAKE_GENERATOR=$generator" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append  
+          $vcvars = Join-Path $vsPath "VC\Auxiliary\Build\vcvars64.bat"  
+          if (-not (Test-Path $vcvars)) { throw "vcvars64.bat not found under $vsPath" }  
+          Write-Output "VCVARS=$vcvars" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append  
   
-      - name: Configure CMake with detected generator  
-        run: cmake -S . -B build -G "$env:CMAKE_GENERATOR" -A x64  
+      - name: Configure with Ninja inside MSVC environment  
+        run: cmd /c "call `"$env:VCVARS`" >nul && cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release"  
   
-      - name: Probe build tree before compilation  
+      - name: Probe build tree  
         run: Get-ChildItem -Path build -Recurse -Depth 2 | Select-Object FullName  
   
-      - name: Build Release configuration  
-        run: cmake --build build --config Release --parallel  
+      - name: Build with Ninja inside MSVC environment  
+        run: cmd /c "call `"$env:VCVARS`" >nul && cmake --build build --parallel"  
   
       - name: Probe generated binaries  
         run: Get-ChildItem -Path build -Recurse -Include *.exe,*.dll | Select-Object FullName,Length  
   
-      - name: Package with CPack (ZIP)  
-        working-directory: build  
-        run: cpack -C Release  
-  
-      - name: Probe produced packages  
-        run: Get-ChildItem -Path build -Recurse -Include *.zip | Select-Object FullName,Length  
-  
-      - name: Upload ZIP package artifact  
+      - name: Upload binaries artifact  
         uses: actions/upload-artifact@v4  
         with:  
           name: milkytracker-windows-x64  
-          path: build/milkytracker*.zip  
+          path: |  
+            build/**/*.exe  
+            build/**/*.dll  
           if-no-files-found: warn
