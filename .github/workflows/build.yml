@@ -35,10 +35,15 @@ jobs:
         working-directory: build
         run: cpack -C Release
 
-      - name: Probe and register generated package file path
-        id: probe-package
-        shell: pwsh
-        run: $packageFile = (Get-ChildItem -Path build -Recurse -Filter *.zip | Select-Object -First 1).FullName; if (-not $packageFile) { throw "CPack output package was not found." }; Write-Output "Detected package: $packageFile"; Write-Output "PACKAGE_PATH=$packageFile" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Probe and register generated package file path  
+        id: probe-package  
+        shell: pwsh  
+        run: |  
+          $packageFile = (Get-ChildItem -Path build -Recurse -Filter *.zip | Select-Object -First 1).FullName  
+          if (-not $packageFile) { throw "CPack output package was not found." }  
+          Write-Output "Detected package: $packageFile"  
+          Write-Output "PACKAGE_PATH=$packageFile" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
