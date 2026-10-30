@@ -28,9 +28,7 @@ jobs:
         run: |  
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"  
           $vsPath = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -property installationPath  
-          $vsVersion = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -property installationVersion  
           Write-Output "Detected VS path: $vsPath"  
-          Write-Output "Detected VS version: $vsVersion"  
           $vcvars = Join-Path $vsPath "VC\Auxiliary\Build\vcvars64.bat"  
           if (-not (Test-Path $vcvars)) { throw "vcvars64.bat not found under $vsPath" }  
           Write-Output "VCVARS=$vcvars" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append  
@@ -38,20 +36,19 @@ jobs:
       - name: Configure with Ninja inside MSVC environment  
         run: cmd /c "call `"$env:VCVARS`" >nul && cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release"  
   
-      - name: Probe build tree  
-        run: Get-ChildItem -Path build -Recurse -Depth 2 | Select-Object FullName  
-  
-      - name: Build with Ninja inside MSVC environment  
+      - name: Build inside MSVC environment  
         run: cmd /c "call `"$env:VCVARS`" >nul && cmake --build build --parallel"  
   
       - name: Probe generated binaries  
-        run: Get-ChildItem -Path build -Recurse -Include *.exe,*.dll | Select-Object FullName,Length  
+        run: Get-ChildItem -Path build -Recurse -Include *.exe,*.dll,*.lib | Select-Object FullName,Length  
   
-      - name: Upload binaries artifact  
+      - name: Package with CPack (ZIP)  
+        working-directory: build  
+        run: cpack -C Release  
+  
+      - name: Upload ZIP package artifact  
         uses: actions/upload-artifact@v4  
         with:  
           name: milkytracker-windows-x64  
-          path: |  
-            build/**/*.exe  
-            build/**/*.dll  
+          path: build/milkytracker*.zip  
           if-no-files-found: warn
